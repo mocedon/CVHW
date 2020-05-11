@@ -97,7 +97,7 @@ def showDatasetImages(set, N=5):
 
 
 def getHyperParam(i=0, path=None):
-    """Get a Hyper Parameters dictionary from selection"""
+    """Get a Hyper Parameters dictionary"""
     dict = {'batch_size': 2**8,
             'learning_rate': 1e-4,
             'epochs': 10,

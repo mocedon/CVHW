@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import scipy
 import matplotlib.pyplot as plt
 import cv2
@@ -97,17 +98,17 @@ def showDatasetImages(set, N=5):
 
 def getHyperParam(i=0, path=None):
     """Get a Hyper Parameters dictionary from selection"""
-    dict = {'batch_size': 2**5,
+    dict = {'batch_size': 2**8,
             'learning_rate': 1e-4,
-            'epochs': 3,
-            'debug': True,
+            'epochs': 10,
+            'debug': False,
             'arc': defaultCNN.__init__,
             'path': "./models/default_cnn.pth",
             'device': torch.device("cuda:0" if torch.cuda.is_available() else "cpu")}
     return dict
 
 
-def logTrain(log, new):
+def logTrainBasic(log, new):
     """log the training proccess"""
     epoch = new[0]
     loss = new[1]
@@ -122,9 +123,14 @@ def logTrain(log, new):
     print(log)
 
 
+def logTrain(log, new):
+    """log every batch"""
+    log = log.append(new,ignore_index=True)
+
+
 def saveModel(model, HP):
     """Saves the current model with it's hyper parameters"""
-    if HP['debug']:
+    if True:
         print('==> Saving model ...')
         state = {
             'net': model.state_dict(),
@@ -193,12 +199,14 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Train
+    log = pd.DataFrame({}, columns= ['Epoch', 'Batch', 'Loss', 'Epoch loss', 'Train acc', 'Test acc','Learning rate', 'Time'])
+
     for epoch in range(1, epochs + 1):
         model.train()  # put in training mode
         running_loss = 0.0
         epoch_time = time.time()
         for i, data in enumerate(trainLoad):
-
+            logBatch = {'Epoch': epoch, 'Batch': i, 'Learning rate': learning_rate}
             # get the inputs
             inputs, labels = data
             # send them to device
@@ -208,6 +216,7 @@ if __name__ == "__main__":
             # forward + backward + optimize
             outputs = model(inputs)  # forward pass
             loss = criterion(outputs, labels)  # calculate the loss
+            logBatch['Loss'] = loss.tolist()
             # always the same 3 steps
             optimizer.zero_grad()  # zero the parameter gradients
             loss.backward()  # backpropagation
@@ -215,20 +224,43 @@ if __name__ == "__main__":
 
             # print statistics
             running_loss += loss.data.item()
-
+            log = log.append(logBatch, ignore_index=True)
         # Normalizing the loss by the total number of train batches
         running_loss /= len(trainLoad)
 
         # Calculate training/test set accuracy of the existing model
         train_accuracy, _ = calculate_accuracy(model, trainLoad, device)
         test_accuracy, _ = calculate_accuracy(model, testsLoad, device)
-        logTrain([],[epoch, running_loss, train_accuracy,test_accuracy, time.time() - epoch_time])
+        log = log.append({'Epoch loss': running_loss,
+                          'Train acc': train_accuracy,
+                          'Test acc': test_accuracy,
+                          'Time': time.time()-epoch_time},
+                         ignore_index=True)
+        learning_rate = learning_rate * 0.85
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = learning_rate
+
+
 
     # Test
+    print(log)
+
+    log.interpolate().plot(y=['Loss', 'Epoch loss'])
+    plt.title('Model loss')
+    plt.xlabel('Batch number')
+    plt.ylabel('loss')
+    plt.show()
+    log.interpolate().plot(y=['Train acc', 'Test acc'])
+    plt.title("Model accuracy")
+    plt.xlabel('Batch number')
+    plt.ylabel('Accuracy [%}')
+    plt.show()
+
     test_accuracy, confusion_matrix = calculate_accuracy(model, testsLoad, device)
     print("test accuracy: {:.3f}%".format(test_accuracy))
 
-    #saveModel(defaultCNN, HPdict)
+    saveModel(model, HPdict)
+    log.to_csv('./logError.csv')
 
     # plot confusion matrix
     classes = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']

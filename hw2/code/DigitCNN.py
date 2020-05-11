@@ -47,13 +47,17 @@ class defaultCNN(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
         )
+        # Set FC architecture
         self.fc_layer = nn.Sequential(
+            # Linea layer 1
             nn.Dropout(p=0.1),
             nn.Linear(4096, 1024),
             nn.ReLU(inplace=True),
+            # Lenear layer 2
             nn.Linear(1024, 512),
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.1),
+            # Linear layer 3
             nn.Linear(512, 10)
         )
 
@@ -70,7 +74,10 @@ class defaultCNN(nn.Module):
 
         return x
 
+
 def convert_to_imshow_format(image):
+    """convert_to_imshow_format(image) -> image_formatted"""
+    """Changes the image into a format fits imshow()"""
     # first convert back to [0,1] range from [-1,1] range - approximately...
     image = image / 2 + 0.5
     image = image.numpy()
@@ -80,12 +87,15 @@ def convert_to_imshow_format(image):
 
 
 def showDatasetImages(set, N=5):
-    """Show N images out of a dataset"""
+    """showDatasetImages(set, N=5)"""
+    """Show N images out of a given dataset"""
+    # Get N images out of set and puts them in a list with labels
     trainloader = torch.utils.data.DataLoader(set,
                                               batch_size=N,
                                               shuffle=True)
     dataiter = iter(trainloader)
     images,labels= dataiter.next()
+    # sets the labels
     classes = range(10)
     fig, axes = plt.subplots(1, len(images), figsize=(12, 2.5))
     for idx, image in enumerate(images):
@@ -96,41 +106,23 @@ def showDatasetImages(set, N=5):
     plt.show()
 
 
-def getHyperParam(i=0, path=None):
+def getHyperParam():
+    """getHyperParam() -> HP_dictionary"""
     """Get a Hyper Parameters dictionary"""
     dict = {'batch_size': 2**8,
             'learning_rate': 1e-4,
             'epochs': 10,
             'debug': False,
-            'arc': defaultCNN.__init__,
             'path': "./models/default_cnn.pth",
             'device': torch.device("cuda:0" if torch.cuda.is_available() else "cpu")}
     return dict
 
 
-def logTrainBasic(log, new):
-    """log the training proccess"""
-    epoch = new[0]
-    loss = new[1]
-    train_acc = new[2]
-    test_acc = new[3]
-    log = "Epoch: {} | Loss: {:.4f} | Training accuracy: {:.3f}% | Test accuracy: {:.3f}% | ".format(epoch,
-                                                                                                     loss,
-                                                                                                     train_acc,
-                                                                                                     test_acc)
-    epoch_time = new[4]
-    log += "Epoch Time: {:.2f} secs".format(epoch_time)
-    print(log)
-
-
-def logTrain(log, new):
-    """log every batch"""
-    log = log.append(new,ignore_index=True)
-
-
 def saveModel(model, HP):
+    """saveModel(model,HP)"""
     """Saves the current model with it's hyper parameters"""
-    if True:
+    """Used only in debug mode"""
+    if HP['debug']:
         print('==> Saving model ...')
         state = {
             'net': model.state_dict(),
@@ -143,29 +135,26 @@ def saveModel(model, HP):
         torch.save(state, HP['path'])
 
 
-def loadModel(model, path):
-    """Recovers a model saved in path"""
-    state = torch.load(path, map_location=device)
-    model.load_state_dict(state['net'])
-
-
-def calculate_accuracy(model, data, device):
+def calculate_accuracy(model, dataSet, device):
+    """calculate_accuracy(model, data, device) -> model_acc , confusion_mat"""
     """Calculates the accuracy of the model towards the data"""
     model.eval()  # put in evaluation mode
     total_correct = 0
     total_images = 0
     confusion_matrix = np.zeros([10, 10], int)
+    # Doesn't calculate back prog
     with torch.no_grad():
-        for data in data:
+        for data in dataSet:
+            # Get data
             images, labels = data
             images = images.to(device)
             labels = labels.to(device)
-            outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
+            outputs = model(images) # Run through model
+            _, predicted = torch.max(outputs.data, 1) # pick label
             total_images += labels.size(0)
             total_correct += (predicted == labels).sum().item()
             for i, l in enumerate(labels):
-                confusion_matrix[l.item(), predicted[i].item()] += 1
+                confusion_matrix[l.item(), predicted[i].item()] += 1 # Correct prediction should be in the diagonal
 
     model_accuracy = total_correct / total_images * 100
     return model_accuracy, confusion_matrix
@@ -178,13 +167,13 @@ if __name__ == "__main__":
     learning_rate = HPdict['learning_rate']
     epochs = HPdict['epochs']
     device = HPdict['device']
-    svhnCNN = HPdict['arc']
     root = "./datasets"
 
     # Load Data sets
     trainSet = torchvision.datasets.SVHN(root, split='train', transform=transform.ToTensor(), target_transform=None, download=True)
     testsSet = torchvision.datasets.SVHN(root, split='test', transform=transform.ToTensor(), target_transform=None, download=True)
     if (HPdict['debug']):
+        # for making training time much shorter
         ind = np.random.randint(1, len(testsSet), 8 * HPdict['batch_size'])
         trainSet = Subset(trainSet, ind)
         testsSet = Subset(testsSet, ind)
@@ -199,12 +188,13 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Train
-    log = pd.DataFrame({}, columns= ['Epoch', 'Batch', 'Loss', 'Epoch loss', 'Train acc', 'Test acc','Learning rate', 'Time'])
+    # Set a logging mechanism
+    log = pd.DataFrame({}, columns=['Epoch', 'Batch', 'Loss', 'Epoch loss', 'Train acc', 'Test acc', 'Learning rate', 'Time'])
 
     for epoch in range(1, epochs + 1):
         model.train()  # put in training mode
         running_loss = 0.0
-        epoch_time = time.time()
+        epoch_time = time.time() # start counter for epoch
         for i, data in enumerate(trainLoad):
             logBatch = {'Epoch': epoch, 'Batch': i, 'Learning rate': learning_rate}
             # get the inputs
@@ -216,14 +206,14 @@ if __name__ == "__main__":
             # forward + backward + optimize
             outputs = model(inputs)  # forward pass
             loss = criterion(outputs, labels)  # calculate the loss
-            logBatch['Loss'] = loss.tolist()
             # always the same 3 steps
             optimizer.zero_grad()  # zero the parameter gradients
             loss.backward()  # backpropagation
             optimizer.step()  # update parameters
 
-            # print statistics
+            # log statistics
             running_loss += loss.data.item()
+            logBatch['Loss'] = loss.tolist()
             log = log.append(logBatch, ignore_index=True)
         # Normalizing the loss by the total number of train batches
         running_loss /= len(trainLoad)
@@ -231,20 +221,22 @@ if __name__ == "__main__":
         # Calculate training/test set accuracy of the existing model
         train_accuracy, _ = calculate_accuracy(model, trainLoad, device)
         test_accuracy, _ = calculate_accuracy(model, testsLoad, device)
+        # log epoch
         log = log.append({'Epoch loss': running_loss,
                           'Train acc': train_accuracy,
                           'Test acc': test_accuracy,
                           'Time': time.time()-epoch_time},
                          ignore_index=True)
+        # Decrease learning rate by the end of the epoch
         learning_rate = learning_rate * 0.85
         for param_group in optimizer.param_groups:
             param_group['lr'] = learning_rate
 
-
-
     # Test
+    test_accuracy, confusion_matrix = calculate_accuracy(model, testsLoad, device)
+    # Give statistics
     print(log)
-
+    print("test accuracy: {:.3f}%".format(test_accuracy))
     log.interpolate().plot(y=['Loss', 'Epoch loss'])
     plt.title('Model loss')
     plt.xlabel('Batch number')
@@ -256,12 +248,6 @@ if __name__ == "__main__":
     plt.ylabel('Accuracy [%}')
     plt.show()
 
-    test_accuracy, confusion_matrix = calculate_accuracy(model, testsLoad, device)
-    print("test accuracy: {:.3f}%".format(test_accuracy))
-
-    saveModel(model, HPdict)
-    log.to_csv('./logError.csv')
-
     # plot confusion matrix
     classes = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
     fig, ax = plt.subplots(1, 1, figsize=(8, 6))
@@ -271,3 +257,7 @@ if __name__ == "__main__":
     plt.xlabel('Predicted Category')
     plt.xticks(range(10), classes)
     plt.show()
+
+    # for debug mode
+    #saveModel(model, HPdict)
+    #log.to_csv('./logError.csv')

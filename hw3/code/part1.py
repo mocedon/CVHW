@@ -140,47 +140,48 @@ def changeBg(fg, bg):
 
 def main():
     # Get and show the images
-    # frg = getImages("./data/frogs")
-    # hrs = getImages("./data/horses")
-    # imgs = frg + hrs
-    #
-    # # Classic segmentation
-    # clSeg = []
-    # for img in imgs:
-    #     clSeg.append(classicSegment(img))
-    #
-    #
-    #
-    # # DL segmentation
+    frg = getImages("./data/frogs")
+    hrs = getImages("./data/horses")
+    imgs = frg + hrs
+
+    # Classic segmentation
+    clSeg = []
+    for img in imgs:
+        clSeg.append(classicSegment(img))
+
+
+
+    # DL segmentation
     model = segModel()
-    # dlSeg = []
-    # for img in imgs:
-    #     dlSeg.append(dlSegment(img, model))
-    #
-    # showImages(imgs + clSeg + dlSeg, 3)
-    # # Get new images
-    # myPics = getImages("./my_data/Items")
-    # clSeg = []
-    # dlSeg = []
-    #
-    # # Segment image
-    # for pic in myPics:
-    #     clSeg.append(classicSegment(pic))
-    #     dlSeg.append(dlSegment(pic, model))
-    # showImages(myPics + clSeg + dlSeg, 3)
+    dlSeg = []
+    for img in imgs:
+        dlSeg.append(dlSegment(img, model))
+
+    showImages(imgs + clSeg + dlSeg, 3)
+    # Get new images
+    myPics = getImages("./my_data/Items")
+    clSeg = []
+    dlSeg = []
+
+    # Segment image
+    for pic in myPics:
+        clSeg.append(classicSegment(pic))
+        dlSeg.append(dlSegment(pic, model))
+    showImages(myPics + clSeg + dlSeg, 3)
 
     # pre or post-processing
 
 
     # Fish out of the water
-    goat = getImages("./my_data/goat")
+    fg = getImages("./my_data/diffBg/fg")[0]
+    bg = getImages("./my_data/diffBg/bg")[0]
     classMod = classModel()
-    pred = dlClassify(goat[1], classMod)
+    pred = dlClassify(fg, classMod)
     print(pred)
-    kang = dlSegment(goat[1], model)
-    showImages([kang])
+    fg_seg = dlSegment(fg, model)
+    showImages([fg_seg])
 
-    kang = changeBg(kang, goat[2])
+    kang = changeBg(fg_seg, bg)
     showImages([kang])
     newPred = dlClassify(kang, classMod)
     cv2.imwrite("../output/Kangaroo_in_autria.jpg", cv2.cvtColor(kang, cv2.COLOR_RGB2BGR))

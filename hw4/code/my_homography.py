@@ -100,11 +100,12 @@ def warpH(im1, H, out_size):
 
 def imageStitching(img1, wrap_img2):
     #TODO: merge better
-#    panoImg = np.zeros_like(wrap_img2)
+    panoImg = np.zeros_like(wrap_img2)
     im1H, im1W = img1.shape[:2]
     im2H, im2W = wrap_img2.shape[:2]
-    panoImg = wrap_img2
     panoImg[:im1H, :im1W, :] = img1
+    mask = np.all(panoImg[:, :] == [0, 0, 0], axis=2)
+    panoImg[mask] = wrap_img2[mask]
 #     im1M = np.full((im2H, im2W), False)
 #     im1M[:im1H, :im1W] = np.any(img1 > [0, 0, 0], axis=2)
 # #    im1M = np.transpose(np.stack([im1M, im1M, im1M]), [1, 2, 0])
@@ -173,7 +174,7 @@ if __name__ == '__main__':
     im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
     im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2RGB)
 
-    working_on = 4
+    working_on = 3
     if working_on < 2:
         if working_on == 0:
             p1,p2 = getPoints(im1, im2, 6)
@@ -224,28 +225,27 @@ if __name__ == '__main__':
         sW = s1.shape[0]
         sH = s1.shape[1]
 
-        st1 = [b3,
-               [b2, [2*bW, int(1.5*bH)]],
-               [b1, [3*bW, int(1.5*bW)]]]
-        st2 = [s5,
-               [s4, [int(1.5*sW), 2*sH]],
-               [s3, [int(1.5*sW), 3*sH]],
-               [s2, [int(1.5*sW), 4*sH]],
-               [s1, [int(1.5*sW), 5*sH]]]
-        sts = [st1, st2]
+        st = [b1, b2, b3]
+        scale = np.array([3, 2, 1])
+        sz = np.array([bW, bH,3] * scale)
 
-        for st in sts:
-            imPrv = pan = st.pop(0)
+        H = np.array([[1, 0, 0   ],
+                      [0, 1, bH/2],
+                      [0, 0, 1   ]])
+        pan = np.zeros(sz)
+        base = b1
 
-            for img, sz in st:
+        for img in st:
+            p1, p2 = getPoints_SIFT(base, img)
+            H = H @ ransacH(p1[:120], p2[:120])
 
-                p1, p2 = getPoints_SIFT(img, imPrv)
-                H = ransacH(p1[:120], p2[:120])
-                img_w = warpH(pan, H, sz)
-                pan = imageStitching(img, img_w)
-                imPrv = img
+            img_w = warpH(img, H, sz)
+            plt.imshow(img_w)
+            plt.show()
+            pan = imageStitching(pan, img_w)
+            base = img
 
-            plt.imshow(pan)
+        plt.imshow(pan)
 
     if working_on == 4:
         b1 = imread('data/beach3.jpg')

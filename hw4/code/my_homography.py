@@ -7,16 +7,16 @@ from matplotlib import pyplot as plt
 
 # #Add imports if needed:
 from scipy import interpolate as interp
-
+import PythonSIFT.pysift as pysift
 # #end imports
 #
 # #Add extra functions here:
-#     """
-#     Your code here
-#     """
+def imread(path):
+    im = cv2.imread(path)
+    return cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 # #Extra functions end
 
-# HW functions:--staged
+# HW functions:
 def getPoints(im1, im2, N=6):
     # TODO: create a better way
     """
@@ -70,12 +70,13 @@ def warpH(im1, H, out_size):
     for i in range(imH * imW):
         u = int(i % imW)
         v = int(np.floor(i / imW))
-        src = np.array([u, v, 1])
-        dst = H @ src.T
-        x = int(dst[0] / dst[2])
-        y = int(dst[1] / dst[2])
-        if 0 <= x < out_size[0] and 0 <= y < out_size[1]:
-            warp[x, y, :] = im1[u, v, :]
+        if not np.all(im1[u,v,:] == [0, 0, 0]):
+            src = np.array([u, v, 1])
+            dst = H @ src.T
+            x = int(dst[0] / dst[2])
+            y = int(dst[1] / dst[2])
+            if 0 <= x < out_size[0] and 0 <= y < out_size[1]:
+                warp[x, y, :] = im1[u, v, :]
 
     # warp_lab = cv2.cvtColor(warp, cv2.COLOR_RGB2LAB)
     # lab = [warp_lab[:, :, 0], warp_lab[:, :, 1], warp_lab[:, :, 2]]
@@ -172,7 +173,7 @@ if __name__ == '__main__':
     im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
     im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2RGB)
 
-    working_on = 3
+    working_on = 4
     if working_on < 2:
         if working_on == 0:
             p1,p2 = getPoints(im1, im2, 6)
@@ -207,29 +208,66 @@ if __name__ == '__main__':
         plt.imshow(pan)
 
     if working_on == 3:
-        im1 = cv2.imread('data/beach3.jpg')
-        im2 = cv2.imread('data/beach2.jpg')
-        im3 = cv2.imread('data/beach1.jpg')
-        im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
-        im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2RGB)
-        im3 = cv2.cvtColor(im3, cv2.COLOR_BGR2RGB)
-        p1, p2 = getPoints_SIFT(im1, im2)
-        H21 = ransacH(p1, p2)
+        b1 = imread('data/beach3.jpg')
+        b2 = imread('data/beach2.jpg')
+        b3 = imread('data/beach1.jpg')
 
-        p2, p3 = getPoints_SIFT(im2, im3)
-        H32 = ransacH(p2[:100], p3[:100])
+        s1 = imread('data/sintra5.JPG')
+        s2 = imread('data/sintra4.JPG')
+        s3 = imread('data/sintra3.JPG')
+        s4 = imread('data/sintra2.JPG')
+        s5 = imread('data/sintra1.JPG')
 
-        #H2 = H1 @ H2
+        bW = b1.shape[0]
+        bH = b1.shape[1]
 
-        imW = im1.shape[0]
-        imH = im1.shape[1]
+        sW = s1.shape[0]
+        sH = s1.shape[1]
 
-        im3_w = warpH(im3, H32, (3 * imW, 2 * imH))
-        im23 = imageStitching(im2, im3_w)
+        st1 = [b3,
+               [b2, [2*bW, int(1.5*bH)]],
+               [b1, [3*bW, int(1.5*bW)]]]
+        st2 = [s5,
+               [s4, [int(1.5*sW), 2*sH]],
+               [s3, [int(1.5*sW), 3*sH]],
+               [s2, [int(1.5*sW), 4*sH]],
+               [s1, [int(1.5*sW), 5*sH]]]
+        sts = [st1, st2]
 
-        im2_w = warpH(im23, H21, (3 * imW, 2 * imH))
-        pan = imageStitching(im1, im2_w)
+        for st in sts:
+            imPrv = pan = st.pop(0)
+
+            for img, sz in st:
+
+                p1, p2 = getPoints_SIFT(img, imPrv)
+                H = ransacH(p1[:120], p2[:120])
+                img_w = warpH(pan, H, sz)
+                pan = imageStitching(img, img_w)
+                imPrv = img
+
+            plt.imshow(pan)
+
+    if working_on == 4:
+        b1 = imread('data/beach3.jpg')
+        b2 = imread('data/beach2.jpg')
+        b3 = imread('data/beach1.jpg')
+
+        sz = np.array(b1.shape[:2])*2
+
+        p1, p2 = getPoints_SIFT(b1, b2)
+        H2t1 = ransacH(p1[:120], p2[:120])
+        i2t1 = warpH(b2, H2t1, sz)
+
+        p2, p3 = getPoints_SIFT(b2,b3)
+        H3t2 = ransacH(p2[:120], p3[:120])
+
+        i3t1 = warpH(b3, H2t1 @ H3t2, sz)
+
+        pan = imageStitching(b1, i2t1)
+        pan = imageStitching(pan, i3t1)
         plt.imshow(pan)
+
+
 
 
 

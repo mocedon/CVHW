@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 
 # #Add imports if needed:
 from scipy import interpolate as interp
+
 # #end imports
 #
 # #Add extra functions here:
@@ -15,7 +16,7 @@ from scipy import interpolate as interp
 #     """
 # #Extra functions end
 
-# HW functions:
+# HW functions:--staged
 def getPoints(im1, im2, N=6):
     # TODO: create a better way
     """
@@ -113,17 +114,18 @@ def imageStitching(img1, wrap_img2):
 #     panoImg[im2M[:, :, np.newaxis]] = wrap_img2[im2M[:, :, np.newaxis]]
     return panoImg
 
-def ransacH(p1, p2, nIter=200, tol=20):
+def ransacH(p1, p2, nIter=1000, tol=10):
     bestH = []
     inline = 0
     for i in range(nIter):
-        rndIdx = np.random.choice(len(p1), 8, replace=False)
+        prob = np.arange(len(p1)-1, -1, -1) / np.sum(np.arange(len(p1)))
+        rndIdx = np.random.choice(len(p1), 8, p=prob, replace=False)
         H = computeH(p1[rndIdx].T, p2[rndIdx].T)
         fit = 0
         for j, p in enumerate(p2):
-            p = np.array([p[0], p[1], 1])
+            p = np.array([p[1], p[0], 1])
             pc = H @ p.T
-            p1_clc = np.array([pc[0] / pc[2], pc[1] / pc[2]])
+            p1_clc = np.array([pc[1] / pc[2], pc[0] / pc[2]])
             dist = np.linalg.norm(p1_clc - p1[j])
             if dist < tol:
                 fit += 1
@@ -196,7 +198,7 @@ if __name__ == '__main__':
 
     if working_on == 2:
         p1, p2 = getPoints_SIFT(im1, im2)
-        H = computeH(p1[:20].T, p2[:20].T)
+        H = computeH(p1[:12].T, p2[:12].T)
         imW = im1.shape[0]
         imH = im1.shape[1]
         im = warpH(im2, H, (2 * imW, 2 * imH))
@@ -205,19 +207,28 @@ if __name__ == '__main__':
         plt.imshow(pan)
 
     if working_on == 3:
-        fncs = [getPoints_SIFT]
-        im1 = cv2.imread('data/beach4.jpg')
-        im2 = cv2.imread('data/beach3.jpg')
+        im1 = cv2.imread('data/beach3.jpg')
+        im2 = cv2.imread('data/beach2.jpg')
+        im3 = cv2.imread('data/beach1.jpg')
         im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
         im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2RGB)
-
+        im3 = cv2.cvtColor(im3, cv2.COLOR_BGR2RGB)
         p1, p2 = getPoints_SIFT(im1, im2)
-        H = ransacH(p1, p2)
+        H21 = ransacH(p1, p2)
+
+        p2, p3 = getPoints_SIFT(im2, im3)
+        H32 = ransacH(p2[:100], p3[:100])
+
+        #H2 = H1 @ H2
+
         imW = im1.shape[0]
         imH = im1.shape[1]
-        im = warpH(im2, H, (2 * imW, 2 * imH))
 
-        pan = imageStitching(im1, im)
+        im3_w = warpH(im3, H32, (3 * imW, 2 * imH))
+        im23 = imageStitching(im2, im3_w)
+
+        im2_w = warpH(im23, H21, (3 * imW, 2 * imH))
+        pan = imageStitching(im1, im2_w)
         plt.imshow(pan)
 
 

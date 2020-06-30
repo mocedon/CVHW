@@ -16,7 +16,7 @@ from scipy import interpolate as interp
 # #Extra functions end
 
 # HW functions:
-def getPoints(im1, im2, N):
+def getPoints(im1, im2, N=6):
     # TODO: create a better way
     """
     getPoints(im1, im2, N) -> p1 , p2
@@ -67,14 +67,14 @@ def warpH(im1, H, out_size):
     imW = im1.shape[0]
     imH = im1.shape[1]
     for i in range(imH * imW):
-        x = int(i % imW)
-        y = int(np.floor(i / imW))
-        src = np.array([x, y, 1])
+        u = int(i % imW)
+        v = int(np.floor(i / imW))
+        src = np.array([u, v, 1])
         dst = H @ src.T
-        u = int(dst[0] / dst[2])
-        v = int(dst[1] / dst[2])
-        if 0 <= u < out_size[0] and 0 <= v < out_size[1]:
-            warp[u, v, :] = im1[x, y, :]
+        x = int(dst[0] / dst[2])
+        y = int(dst[1] / dst[2])
+        if 0 <= x < out_size[0] and 0 <= y < out_size[1]:
+            warp[x, y, :] = im1[u, v, :]
 
     # warp_lab = cv2.cvtColor(warp, cv2.COLOR_RGB2LAB)
     # lab = [warp_lab[:, :, 0], warp_lab[:, :, 1], warp_lab[:, :, 2]]
@@ -113,15 +113,55 @@ def imageStitching(img1, wrap_img2):
 #     panoImg[im2M[:, :, np.newaxis]] = wrap_img2[im2M[:, :, np.newaxis]]
     return panoImg
 
-# def ransacH(matches, locs1, locs2, nIter, tol):
-#     """
-#     Your code here
-#     """
-#     return bestH
-#
-def getPoints_SIFT(im1,im2):
+def ransacH(p1, p2, nIter=200, tol=20):
+    bestH = []
+    inline = 0
+    for i in range(nIter):
+        rndIdx = np.random.choice(len(p1), 8, replace=False)
+        H = computeH(p1[rndIdx].T, p2[rndIdx].T)
+        fit = 0
+        for j, p in enumerate(p2):
+            p = np.array([p[0], p[1], 1])
+            pc = H @ p.T
+            p1_clc = np.array([pc[0] / pc[2], pc[1] / pc[2]])
+            dist = np.linalg.norm(p1_clc - p1[j])
+            if dist < tol:
+                fit += 1
+        if fit > inline:
+            bestH = H
+            inline = fit
 
-    return p1,p2
+    #debug
+    print(bestH)
+    print(inline)
+
+    return bestH
+
+def getPoints_SIFT(im1,im2):
+    SFT = cv2.ORB_create()
+    kp1, ds1 = SFT.detectAndCompute(im1, None)
+    kp2, ds2 = SFT.detectAndCompute(im2, None)
+
+    BFM = cv2.BFMatcher_create(normType=cv2.NORM_L2, crossCheck=True)
+
+    prs = BFM.match(ds1, ds2)
+    prs = sorted(prs, key=lambda x:x.distance)
+
+    p1 = []
+    p2 = []
+    for m in prs:
+        p1.append(kp1[m.queryIdx].pt)
+        p2.append(kp2[m.trainIdx].pt)
+
+    p1 = np.array(p1, dtype=int)
+    p2 = np.array(p2, dtype=int)
+
+    # Debug
+    img3 = cv2.drawMatches(im1, kp1, im2, kp2, prs, None, flags=2)
+    plt.imshow(img3), plt.show()
+
+    return p1, p2
+
 
 if __name__ == '__main__':
     print('my_homography')
@@ -129,27 +169,58 @@ if __name__ == '__main__':
     im2 = cv2.imread('data/incline_R.png')
     im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
     im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2RGB)
-    if False:
-        p1,p2 = getPoints(im1, im2, 6)
-        print(f'p1 {p1}')
-        print(f'p2 {p2}')
-    else:
-        p1 = np.array([[452, 610, 622, 401, 914, 414],
-                       [123, 195, 489, 176, 360, 360]])
-        p2 = np.array([[117, 290, 315, 58, 572, 80],
-                       [152, 245, 539, 221, 398, 426]])
-    H = computeH(p1, p2)
-    print(H)
-    imW =im1.shape[0]
-    imH = im1.shape[1]
-    im = warpH(im2, H, (2*imW, 2*imH))
-    # fig, (ax1, ax2) = plt.subplots(1,2)
-    # ax1.imshow(im1)
-    # ax2.imshow(im)
+
+    working_on = 3
+    if working_on < 2:
+        if working_on == 0:
+            p1,p2 = getPoints(im1, im2, 6)
+            print(f'p1 {p1}')
+            print(f'p2 {p2}')
+        else:
+            p1 = np.array([[452, 610, 622, 401, 914, 414],
+                           [123, 195, 489, 176, 360, 360]])
+            p2 = np.array([[117, 290, 315, 58, 572, 80],
+                           [152, 245, 539, 221, 398, 426]])
+        H = computeH(p1, p2)
+        print(H)
+        imW =im1.shape[0]
+        imH = im1.shape[1]
+        im = warpH(im2, H, (2*imW, 2*imH))
+        # fig, (ax1, ax2) = plt.subplots(1,2)
+        # ax1.imshow(im1)
+        # ax2.imshow(im)
 
 
-    pan = imageStitching(im1 , im)
-    plt.imshow(pan)
+        pan = imageStitching(im1 , im)
+        plt.imshow(pan)
+
+    if working_on == 2:
+        p1, p2 = getPoints_SIFT(im1, im2)
+        H = computeH(p1[:20].T, p2[:20].T)
+        imW = im1.shape[0]
+        imH = im1.shape[1]
+        im = warpH(im2, H, (2 * imW, 2 * imH))
+
+        pan = imageStitching(im1, im)
+        plt.imshow(pan)
+
+    if working_on == 3:
+        fncs = [getPoints_SIFT]
+        im1 = cv2.imread('data/beach4.jpg')
+        im2 = cv2.imread('data/beach3.jpg')
+        im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
+        im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2RGB)
+
+        p1, p2 = getPoints_SIFT(im1, im2)
+        H = ransacH(p1, p2)
+        imW = im1.shape[0]
+        imH = im1.shape[1]
+        im = warpH(im2, H, (2 * imW, 2 * imH))
+
+        pan = imageStitching(im1, im)
+        plt.imshow(pan)
+
+
 
     # Alwatys last
     plt.show()

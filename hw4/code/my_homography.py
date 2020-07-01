@@ -67,6 +67,7 @@ def warpH(im1, H, out_size):
     warp = np.zeros([out_size[0], out_size[1], im1.shape[2]], dtype=np.uint8)
     imW = im1.shape[0]
     imH = im1.shape[1]
+    pts = []
     for i in range(imH * imW):
         u = int(i % imW)
         v = int(np.floor(i / imW))
@@ -76,24 +77,23 @@ def warpH(im1, H, out_size):
             x = int(dst[0] / dst[2])
             y = int(dst[1] / dst[2])
             if 0 <= x < out_size[0] and 0 <= y < out_size[1]:
-                warp[x, y, :] = im1[u, v, :]
-
-    # warp_lab = cv2.cvtColor(warp, cv2.COLOR_RGB2LAB)
-    # lab = [warp_lab[:, :, 0], warp_lab[:, :, 1], warp_lab[:, :, 2]]
-    #
-    # x = np.arange(out_size[1])
-    # y = np.arange(out_size[0])
-    # xx, yy = np.meshgrid(x, y)
-    #
+                l, a, b = im1[u, v, :]
+                warp[x, y, :] = [l, a, b]
+                pts.append([x, y, l, a, b])
+    # pts = np.array(pts)
+    # a = 1000
+    # batch = int(len(pts) / a)
+    # pts = pts[:a*batch].reshape(-1, batch, 5)
+    # lab = [warp[:, :, 0], warp[:, :, 1], warp[:, :, 2]]
     # warp_im1 = np.zeros_like(warp)
     # for i, ch in enumerate(lab):
-    #     mask = ch > 0
-    #     xx_used = xx[mask].ravel()
-    #     yy_used = yy[mask].ravel()
-    #     ch_used = ch[mask].ravel()
-    #     intrp = interp.interp2d(xx_used, yy_used, ch_used, kind='linear')
-    #     warp_im1[:, :, i] = intrp(x, y)
-    # warp_im1 = cv2.cvtColor(warp_im1, cv2.COLOR_LAB2RGB)
+    #     for pt in pts:
+    #         x = pt.T[0]
+    #         y = pt.T[1]
+    #         z = pt.T[2+i]
+    #         print("Start intrp")
+    #         intrp = interp.interp2d(x, y, z, kind='linear')
+    #         print("End intrp")
 
     return warp
 
@@ -101,19 +101,14 @@ def warpH(im1, H, out_size):
 def imageStitching(img1, wrap_img2):
     #TODO: merge better
     panoImg = np.zeros_like(wrap_img2)
-    im1H, im1W = img1.shape[:2]
-    im2H, im2W = wrap_img2.shape[:2]
-    panoImg[:im1H, :im1W, :] = img1
-    mask = np.all(panoImg[:, :] == [0, 0, 0], axis=2)
-    panoImg[mask] = wrap_img2[mask]
-#     im1M = np.full((im2H, im2W), False)
-#     im1M[:im1H, :im1W] = np.any(img1 > [0, 0, 0], axis=2)
-# #    im1M = np.transpose(np.stack([im1M, im1M, im1M]), [1, 2, 0])
-#     im2M = np.any(wrap_img2 > [0, 0, 0] , axis=2)
-# #    im2M = np.transpose(np.stack([im2M, im2M, im2M]), [1, 2, 0])
-#     #im2M = np.bitwise_xor(im1M, im2M)
-#     panoImg[im1M[:, :, np.newaxis]] = img1[im1M[:, :, np.newaxis]]
-#     panoImg[im2M[:, :, np.newaxis]] = wrap_img2[im2M[:, :, np.newaxis]]
+    mask1 = np.any(img1[:, :] > [0, 0, 0], axis=2)
+    mask2 = np.any(wrap_img2[:, :] > [0, 0, 0], axis=2)
+    mask0 = np.bitwise_and(mask1, mask2) # Mask overlap
+    mask1 = np.bitwise_xor(mask1,mask0)
+    mask2 = np.bitwise_xor(mask2,mask0)
+    panoImg[mask1] = img1[mask1]
+    panoImg[mask2] = wrap_img2[mask2]
+    panoImg[mask0] = (img1[mask0] + wrap_img2[mask0]) / 2
     return panoImg
 
 
@@ -176,7 +171,7 @@ if __name__ == '__main__':
     im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
     im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2RGB)
 
-    working_on = 4
+    working_on = 2
     if working_on < 2:
         if working_on == 0:
             p1,p2 = getPoints(im1, im2, 6)
@@ -202,12 +197,14 @@ if __name__ == '__main__':
 
     if working_on == 2:
         p1, p2 = getPoints_SIFT(im1, im2)
+        I = np.identity(3)
         H = computeH(p1[:12].T, p2[:12].T)
-        imW = im1.shape[0]
-        imH = im1.shape[1]
-        im = warpH(im2, H, (2 * imW, 2 * imH))
+        sz = np.array(im1.shape[:2]) *2
 
-        pan = imageStitching(im1, im)
+        im1_p = warpH(im1, I, sz)
+        im2_p = warpH(im2, H, sz)
+
+        pan = imageStitching(im1_p, im2_p)
         plt.imshow(pan)
 
     if working_on == 3:

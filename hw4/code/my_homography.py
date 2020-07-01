@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 
 # #Add imports if needed:
 from scipy import interpolate as interp
-import PythonSIFT.pysift as pysift
+import code.PythonSIFT.pysift as pysift
 # #end imports
 #
 # #Add extra functions here:
@@ -116,6 +116,7 @@ def imageStitching(img1, wrap_img2):
 #     panoImg[im2M[:, :, np.newaxis]] = wrap_img2[im2M[:, :, np.newaxis]]
     return panoImg
 
+
 def ransacH(p1, p2, nIter=1000, tol=10):
     bestH = []
     inline = 0
@@ -140,6 +141,7 @@ def ransacH(p1, p2, nIter=1000, tol=10):
     print(inline)
 
     return bestH
+
 
 def getPoints_SIFT(im1,im2):
     SFT = cv2.ORB_create()
@@ -174,7 +176,7 @@ if __name__ == '__main__':
     im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
     im2 = cv2.cvtColor(im2, cv2.COLOR_BGR2RGB)
 
-    working_on = 3
+    working_on = 4
     if working_on < 2:
         if working_on == 0:
             p1,p2 = getPoints(im1, im2, 6)
@@ -213,17 +215,11 @@ if __name__ == '__main__':
         b2 = imread('data/beach2.jpg')
         b3 = imread('data/beach1.jpg')
 
-        s1 = imread('data/sintra5.JPG')
-        s2 = imread('data/sintra4.JPG')
-        s3 = imread('data/sintra3.JPG')
-        s4 = imread('data/sintra2.JPG')
-        s5 = imread('data/sintra1.JPG')
+
 
         bW = b1.shape[0]
         bH = b1.shape[1]
 
-        sW = s1.shape[0]
-        sH = s1.shape[1]
 
         st = [b1, b2, b3]
         scale = np.array([3, 2, 1])
@@ -247,24 +243,44 @@ if __name__ == '__main__':
 
         plt.imshow(pan)
 
+
+
     if working_on == 4:
-        b1 = imread('data/beach3.jpg')
-        b2 = imread('data/beach2.jpg')
-        b3 = imread('data/beach1.jpg')
+        s1 = imread('data/sintra5.JPG')
+        s2 = imread('data/sintra4.JPG')
+        s3 = imread('data/sintra3.JPG')
+        s4 = imread('data/sintra2.JPG')
+        s5 = imread('data/sintra1.JPG')
 
-        sz = np.array(b1.shape[:2])*2
+        sW = s1.shape[0]
+        sH = s1.shape[1]
 
-        p1, p2 = getPoints_SIFT(b1, b2)
-        H2t1 = ransacH(p1[:120], p2[:120])
-        i2t1 = warpH(b2, H2t1, sz)
+        sts = [[s3, s4, s5],
+               [s3, s2, s1]]
 
-        p2, p3 = getPoints_SIFT(b2,b3)
-        H3t2 = ransacH(p2[:120], p3[:120])
+        scale = np.array([2, 5, 1])
+        sz = np.array([sW, sH, 3] * scale)
+        pan = np.zeros(sz)
+        plt.imshow(pan)
+        plt.show()
 
-        i3t1 = warpH(b3, H2t1 @ H3t2, sz)
+        for st in sts:
+            H = np.array([[1, 0, sW / 2],
+                          [0, 1, sH * 2],
+                          [0, 0, 1]])
 
-        pan = imageStitching(b1, i2t1)
-        pan = imageStitching(pan, i3t1)
+            base = st[0]
+
+            for img in st:
+                p1, p2 = getPoints_SIFT(base, img)
+                H = H @ ransacH(p1[:120], p2[:120])
+
+                img_w = warpH(img, H, sz)
+                plt.imshow(img_w)
+                plt.show()
+                pan = imageStitching(pan, img_w)
+                base = img
+
         plt.imshow(pan)
 
 

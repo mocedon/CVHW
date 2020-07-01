@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 
 # #Add imports if needed:
 from scipy import interpolate as interp
-import code.PythonSIFT.pysift as pysift
+import PythonSIFT.pysift as pysift
 # #end imports
 #
 # #Add extra functions here:
@@ -23,7 +23,7 @@ def getPoints(im1, im2, N=6):
     getPoints(im1, im2, N) -> p1 , p2
     Manually pick of corresponding points on 2 images
     """
-    plt.imshow(np.hstack([im1, im2]))
+    plt.imshow(np.hstack([im1, im2])) # fix it!
     plt.xticks([])
     plt.yticks([])
     print("Match points on both images")
@@ -38,7 +38,7 @@ def getPoints(im1, im2, N=6):
         if i % 2:
             p1.append(np.array(pt))
         else:
-            p2.append(np.array([pt[0] - width, pt[1]]))
+            p2.append(np.array([np.maximum(pt[0] - width, 0), pt[1]]))
     p1 = np.vstack(p1).T
     p2 = np.vstack(p2).T
     return p1, p2

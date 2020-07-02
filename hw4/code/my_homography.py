@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from scipy import interpolate as interp
 import PythonSIFT.pysift as pysift
 # #end imports
-#
+#789
 # #Add extra functions here:
 def imread(path, ds=1):
     im = cv2.imread(path)
@@ -23,29 +23,30 @@ def imread(path, ds=1):
 
 # HW functions:
 def getPoints(im1, im2, N=6):
-    # TODO: create a better way
     """
     getPoints(im1, im2, N) -> p1 , p2
-    Manually pick of corresponding points on 2 images
+    Manually pick corresponding points on 2 images
     """
-    plt.imshow(np.hstack([im1, im2])) # fix it!
+    # Plot images
+    plt.subplot(1, 2, 1)
+    plt.imshow(im1)
     plt.xticks([])
     plt.yticks([])
-    print("Match points on both images")
+    plt.title("Pick a key-point HERE first")
+    plt.subplot(1, 2, 2)
+    plt.imshow(im2)
+    plt.xticks([])
+    plt.yticks([])
+    plt.title("Pick a corresponding key-point HERE next")
+    print("Match points on both images, left-right-left-right...")
+
+    # Choose points
     pts = plt.ginput(2 * N, timeout=0)
-    plt.show()
 
-    p1 = []
-    p2 = []
+    # Separate between images and stack as matrix
+    pts1 = np.row_stack(pts[::2]).T
+    pts2 = np.row_stack(pts[1::2]).T
 
-    width = im1.shape[1]
-    for i, pt in enumerate(pts, 1):
-        if i % 2:
-            p1.append(np.array(pt))
-        else:
-            p2.append(np.array([np.maximum(pt[0] - width, 0), pt[1]]))
-    p1 = np.vstack(p1).T
-    p2 = np.vstack(p2).T
     return p1, p2
 
 
@@ -170,10 +171,10 @@ if __name__ == '__main__':
     im1 = imread('data/incline_L.png', ds=4)
     im2 = imread('data/incline_R.png', ds=4)
 
-    working_on = 3
+    working_on = 0
     if working_on < 2:
         if working_on == 0:
-            p1,p2 = getPoints(im1, im2, 6)
+            p1, p2 = getPoints(im1, im2, 6)
             print(f'p1 {p1}')
             print(f'p2 {p2}')
         else:

@@ -72,7 +72,8 @@ def im2im(base, ref, item):
 
 def vid2vid(main, ref, side):
     out = []
-    for i in range(len(main)):
+    length = min(len(main), len(side))
+    for i in range(length):
         print("frame {:04d}".format(i))
         out.append(im2im(main[i], ref, side[i]))
     return out
@@ -82,8 +83,8 @@ if __name__ == '__main__':
     print('my_ar')
 
     sections2run = ['Q3.1 ',
-                    'Q3.2 ',
-                    'Q3.3 v',
+                    'Q3.2 v',
+                    'Q3.3 ',
                     'Q3.4 ']
 
     if 'Q3.1 v' in sections2run:
@@ -113,30 +114,30 @@ if __name__ == '__main__':
         #     im = im2im(base, ref, item)
         #     imwrite(im, base_p, "_ar")
         #
-        # ref = imread('../output/book3_ref.jpg')
-        # img_pairs = [['./my_data/jet1.jpg', '../output/book3_ref.jpg'],
-        #              ['./my_data/jet2.jpg', '../output/book2_ref.jpg'],
-        #              ['./my_data/jet3.jpg', '../output/book2_ref.jpg'],
-        #              ['./my_data/jet4.jpg', '../output/book3_ref.jpg']]
-        #
-        # for base_p, inst_p in img_pairs:
-        #     item = imread(inst_p)
-        #     base = imread(base_p)
-        #     im = im2im(base, ref, item)
-        #     imwrite(im, base_p, "_ar")
-
-        ref = imread('../output/book4_ref.jpg')
-        img_pairs = [['./my_data/bet1.jpg', '../output/book3_ref.jpg'],
-                     ['./my_data/bet2.jpg', '../output/book2_ref.jpg'],
-                     ['./my_data/bet3.jpg', '../output/book2_ref.jpg'],
-                     ['./my_data/bet4.jpg', '../output/book3_ref.jpg'],
-                     ['./my_data/bet5.jpg', '../output/book3_ref.jpg']]
+        ref = imread('../output/book3_ref.jpg')
+        img_pairs = [['./my_data/jet1.jpg', '../output/book4_ref.jpg'],
+                     ['./my_data/jet2.jpg', '../output/book2_ref.jpg'],
+                     ['./my_data/jet3.jpg', '../output/book2_ref.jpg'],
+                     ['./my_data/jet4.jpg', '../output/book4_ref.jpg']]
 
         for base_p, inst_p in img_pairs:
             item = imread(inst_p)
             base = imread(base_p)
             im = im2im(base, ref, item)
             imwrite(im, base_p, "_ar")
+
+        # ref = imread('../output/book4_ref.jpg')
+        # img_pairs = [['./my_data/bet1.jpg', '../output/book3_ref.jpg'],
+        #              ['./my_data/bet2.jpg', '../output/book2_ref.jpg'],
+        #              ['./my_data/bet3.jpg', '../output/book2_ref.jpg'],
+        #              ['./my_data/bet4.jpg', '../output/book3_ref.jpg'],
+        #              ['./my_data/bet5.jpg', '../output/book3_ref.jpg']]
+        #
+        # for base_p, inst_p in img_pairs:
+        #     item = imread(inst_p)
+        #     base = imread(base_p)
+        #     im = im2im(base, ref, item)
+        #     imwrite(im, base_p, "_ar")
 
     if 'Q3.3 v' in sections2run:
         print("Start Q3.2")
@@ -145,6 +146,7 @@ if __name__ == '__main__':
         vid_side_path = './my_data/vid_side.mp4'
         ims_side_path = './my_data/vid_side_dir'
         vid_outp_path = '../output/vid_outp_dir'
+        vid_finl_path = '../output/vidFinal.mp4'
         vid2ims(vid_main_path, ims_main_path)
         vid2ims(vid_side_path, ims_side_path)
 
@@ -167,7 +169,7 @@ if __name__ == '__main__':
             im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
             cv2.imwrite(p, im)
 
-        ims2vid(vid_outp_path, vid_outp_path)
+        ims2vid(vid_outp_path, vid_finl_path)
 
     if 'Q3.4 v' in sections2run:
         print("Start Q3.4")

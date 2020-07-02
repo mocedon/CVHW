@@ -170,7 +170,7 @@ if __name__ == '__main__':
     im1 = imread('data/incline_L.png', ds=4)
     im2 = imread('data/incline_R.png', ds=4)
 
-    working_on = 6
+    working_on = 7
     if working_on < 2:
         if working_on == 0:
             p1,p2 = getPoints(im1, im2, 6)

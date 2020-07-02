@@ -9,20 +9,23 @@ import PythonSIFT.pysift as pysift
 
 OUTPUT_FOLDER = pathlib.Path(r"").absolute().parent / "output"
 DS_INCLINE = 4
+DS_BEACH = 4
+DS_SINTRA = 4
+DS_HERZELYIA = 4
 DS_FLOOR = 10
-DS_BEACH = 15
-DS_SINTRA = 15
+
 
 # #Add extra functions here:
 def imread(path, ds=1):
-    im = cv2.imread(path)
-    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    img = cv2.imread(path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     if ds > 1:
-        sz = np.floor(np.array(im.shape[:2]) / ds).astype(int)
-        sz = (sz[1], sz[0])
-        im = cv2.resize(im, sz, interpolation=cv2.INTER_LINEAR)
-    return im
+        size = np.floor(np.array(img.shape[:2]) / ds).astype(int)
+        size = (size[1], size[0])
+        img = cv2.resize(img, size, interpolation=cv2.INTER_LINEAR)
+    return img
 # #Extra functions end
+
 
 # HW functions:
 def getPoints(im1, im2, N=6):
@@ -119,15 +122,15 @@ def warpH(im1, H, out_size):
     return warp
 
 
-def imageStitching(img1, wrap_img2):
-    panoImg = np.zeros_like(wrap_img2)
+def imageStitching(img1, warp_img2):
+    panoImg = np.zeros_like(warp_img2)
     mask1 = np.any(img1[:, :] > [0, 0, 0], axis=2)
-    mask2 = np.any(wrap_img2[:, :] > [0, 0, 0], axis=2)
+    mask2 = np.any(warp_img2[:, :] > [0, 0, 0], axis=2)
     mask0 = np.bitwise_and(mask1, mask2) # Mask overlap
     mask1 = np.bitwise_xor(mask1,mask0)
     mask2 = np.bitwise_xor(mask2,mask0)
     panoImg[mask1] = img1[mask1]
-    panoImg[mask2] = wrap_img2[mask2]
+    panoImg[mask2] = warp_img2[mask2]
     panoImg[mask0] = img1[mask0]
 
     fig = plt.figure()
@@ -164,7 +167,7 @@ def ransacH(p1, p2, nIter=1000, tol=10):
     return bestH
 
 
-def getPoints_SIFT(im1,im2):
+def getPoints_SIFT(im1, im2):
     # SFT = cv2.ORB_create()
     # kp1, ds1 = SFT.detectAndCompute(im1, None)
     # kp2, ds2 = SFT.detectAndCompute(im2, None)
@@ -233,12 +236,12 @@ def imageStitchingHomography(img1, img2, getPointsBy="ginput"):
         p2 = p2.T
     I = np.identity(3)
     H = computeH(p1[:12].T, p2[:12].T)
-    sz = np.array(img1.shape[:2]) * 2
+    size = np.array(img1.shape[:2]) * 2
 
     print(f'H {H}')
 
-    img1_p = warpH(img1, I, sz)
-    img2_p = warpH(img2, H, sz)
+    img1_p = warpH(img1, I, size)
+    img2_p = warpH(img2, H, size)
 
     fig = plt.figure()
     plt.imshow(np.hstack([img1_p, img2_p]))
@@ -261,12 +264,12 @@ def imageStitchingAffine(img1, img2, getPointsBy="ginput"):
         p2 = p2.T
     I = np.identity(3)
     A = computeA(p1[:12].T, p2[:12].T)
-    sz = np.array(img1.shape[:2]) * 2
+    size = np.array(img1.shape[:2]) * 2
 
     print(f'A {A}')
 
-    img1_p = warpH(img1, I, sz)
-    img2_p = warpH(img2, A, sz)
+    img1_p = warpH(img1, I, size)
+    img2_p = warpH(img2, A, size)
 
     fig = plt.figure()
     plt.imshow(np.hstack([img1_p, img2_p]))
@@ -299,24 +302,9 @@ if __name__ == '__main__':
         p2 = np.array([[117, 290, 315, 58, 572, 80],
                        [152, 245, 539, 221, 398, 426]])
 
-    # Q2.2
-    if q == 22:
-        im1 = imread('data/incline_L.png', ds=4)
-        im2 = imread('data/incline_R.png', ds=4)
-
-
-    working_on = 0
+    working_on = 3
 
     if working_on < 2:
-        if working_on == 0:
-            p1, p2 = getPoints(im1, im2, 6)
-            print(f'p1 {p1}')
-            print(f'p2 {p2}')
-        else:
-            p1 = np.array([[452, 610, 622, 401, 914, 414],
-                           [123, 195, 489, 176, 360, 360]])
-            p2 = np.array([[117, 290, 315, 58, 572, 80],
-                           [152, 245, 539, 221, 398, 426]])
         H = computeH(p1, p2)
         print(H)
         imW = im1.shape[0]
@@ -328,24 +316,23 @@ if __name__ == '__main__':
         pan = imageStitching(im1 , im)
         plt.imshow(pan)
 
-    working_on = 2
-
     if working_on == 2:
         # Example of non-working affine stitching
-        # print("Stitching incline-*.jpg using homography transformation")
-        # imageStitchingHomography(im1, im2)
-        # print("Stitching incline-*.jpg using affine transformation")
-        # imageStitchingAffine(im1, im2)
+        print("Stitching incline-*.jpg using homography transformation")
+        imageStitchingHomography(im1, im2)
+        print("Stitching incline-*.jpg using affine transformation")
+        imageStitchingAffine(im1, im2)
 
-        # # Debug computeA
-        # # Identity
-        # p1 = np.array([[0, 0, 1, 1], [0, 1, 1, 0]])
-        # p2 = p1.copy()
-        # res = computeA(p1, p2)
-        # # Mirror
-        # p1 = np.array([[0, 0, 1, 1], [0, 1, 1, 0]])
-        # p2 = -p1.copy()
-        # res = computeA(p1, p2)
+        # Debug computeA
+        if debug:
+            # Identity
+            p1 = np.array([[0, 0, 1, 1], [0, 1, 1, 0]])
+            p2 = p1.copy()
+            res = computeA(p1, p2)
+            # Mirror
+            p1 = np.array([[0, 0, 1, 1], [0, 1, 1, 0]])
+            p2 = -p1.copy()
+            res = computeA(p1, p2)
         # Example of working affine stitching
         im1_ah = imread(r'my_data\FloorEqualDepth\FloorEqualDepth-L.jpg', ds=DS_FLOOR)
         im2_ah = imread(r'my_data\FloorEqualDepth\FloorEqualDepth-R.jpg', ds=DS_FLOOR)
@@ -354,6 +341,45 @@ if __name__ == '__main__':
         print("Stitching FloorEqualDepth-*.jpg using affine transformation")
         imageStitchingAffine(im1_ah, im2_ah)
 
+
+    if working_on == 3:
+        print("Complete panoram of Herzelyia*.jpg")
+        he = imread('my_data\HerzlyiaToStitch/HerzelyiaE.jpg', ds=DS_HERZELYIA)
+        hm = imread('my_data\HerzlyiaToStitch/HerzelyiaE.jpg', ds=DS_HERZELYIA)
+        hw = imread('my_data\HerzlyiaToStitch/HerzelyiaE.jpg', ds=DS_HERZELYIA)
+
+        hW = hm.shape[0]
+        hH = hm.shape[1]
+
+
+        sts = [[hm, he],
+               [hm, hw,]]
+
+        scale = np.array([5, 2, 1])
+        sz = np.array([hW, hH, 3] * scale)
+
+
+        pan = np.zeros(sz)
+        base = hm
+
+        for st in sts:
+            H = np.array([[1, 0, hW * 2],
+                          [0, 1, hH / 2],
+                          [0, 0, 1]])
+
+            for im in st:
+                print("getPoint_SIFT")
+                p1, p2 = getPoints_SIFT(base, im)
+                H = H @ ransacH(p1[:12], p2[:12])
+
+                im_w = warpH(im, H, sz)
+                plt.imshow(im_w)
+                plt.show()
+                pan = imageStitching(pan, im_w)
+                base = im
+
+        plt.imshow(pan)
+        plt.show()
 
 
     if working_on == 3:
@@ -374,7 +400,6 @@ if __name__ == '__main__':
         scale = np.array([5, 2, 1])
         sz = np.array([bW, bH,3] * scale)
 
-
         pan = np.zeros(sz)
         base = b3
 
@@ -384,16 +409,16 @@ if __name__ == '__main__':
                           [0, 0, 1]])
             base = b3
 
-            for img in st:
+            for im in st:
                 print("getPoint_SIFT")
-                p1, p2 = getPoints_SIFT(base, img)
+                p1, p2 = getPoints_SIFT(base, im)
                 H = H @ ransacH(p1[:120], p2[:120])
 
-                img_w = warpH(img, H, sz)
-                plt.imshow(img_w)
+                im_w = warpH(im, H, sz)
+                plt.imshow(im_w)
                 plt.show()
-                pan = imageStitching(pan, img_w)
-                base = img
+                pan = imageStitching(pan, im_w)
+                base = im
 
 
         plt.imshow(pan)
@@ -428,16 +453,16 @@ if __name__ == '__main__':
 
             base = st[0]
 
-            for img in st:
+            for im in st:
                 print("getPoint_SIFT")
-                p1, p2 = getPoints_SIFT(base, img)
+                p1, p2 = getPoints_SIFT(base, im)
                 H = H @ ransacH(p1[:120], p2[:120])
 
-                img_w = warpH(img, H, sz)
-                plt.imshow(img_w)
+                im_w = warpH(im, H, sz)
+                plt.imshow(im_w)
                 plt.show()
-                pan = imageStitching(pan, img_w)
-                base = img
+                pan = imageStitching(pan, im_w)
+                base = im
 
         plt.imshow(pan)
 
@@ -463,22 +488,17 @@ if __name__ == '__main__':
 
             base = st[0]
 
-            for img in st:
-                p1, p2 = getPoints_SIFT(base, img)
+            for im in st:
+                p1, p2 = getPoints_SIFT(base, im)
                 H = H @ ransacH(p1[:120], p2[:120])
 
-                img_w = warpH(img, H, sz)
-                plt.imshow(img_w)
+                im_w = warpH(im, H, sz)
+                plt.imshow(im_w)
                 plt.show()
-                pan = imageStitching(pan, img_w)
-                base = img
+                pan = imageStitching(pan, im_w)
+                base = im
         plt.imshow(pan)
         plt.show()
-
-
-
-
-
 
 
     # Alwatys last

@@ -15,6 +15,7 @@ from frame_video_convert import image_seq_to_video as ims2vid
 
 #Add functions here:
 def imwrite(im, path, note="new"):
+    # Write the name with suffix
     p, ext = os.path.splitext(path)
     dir, fn = os.path.split(p)
     out_dir = '../output'
@@ -25,6 +26,7 @@ def imwrite(im, path, note="new"):
 
 # HW functions:
 def create_ref(im_path):
+    """ create_ref(im_path) -> im"""
     im = imread(im_path)
     H, W = im.shape[:2]
     plt.imshow(im)
@@ -35,6 +37,7 @@ def create_ref(im_path):
           "Bottom Right\n"
           "Top Middle\n"
           "Right Middle")
+    # p1 are know in advance
     p1 = [[0  , 0  ],
           [W-1 , 0  ],
           [0  , H-1],
@@ -42,12 +45,10 @@ def create_ref(im_path):
           [W/2, 0  ],
           [W-1, H/2]]
     p2 = plt.ginput(6, timeout=0)
+
     p1 = np.vstack(p1).T
     p2 = np.vstack(p2).T
-    print(f'p1= {p1}')
-    print(f'p2= {p2}')
-    H = mh.computeH(p1, p2)
-    print(f'H= {H}')
+    H = mh.computeH(p1, p2) # calc Mat H
 
     sz = im.shape
 
@@ -58,31 +59,32 @@ def create_ref(im_path):
 
 def im2im(base, ref, item):
 
-    p1, p2 = mh.getPoints_SIFT(base, ref)
+    p1, p2 = mh.getPoints_SIFT(base, ref) # find ref in base
     H = mh.ransacH(p1, p2)
     sz = (ref.shape[1], ref.shape[0])
     item_rs = cv2.resize(item, sz, interpolation=cv2.INTER_LINEAR)
     item_w = mh.warpH(item_rs, H, base.shape)
     im = base
-    mask = np.any(item_w[:, :] != [0, 0, 0], axis=2)
-    im[mask] = item_w[mask]
+    mask = np.any(item_w[:, :] != [0, 0, 0], axis=2) # object mask
+    im[mask] = item_w[mask] # place the image
 
     return im
 
 
 def vid2vid(main, ref, side):
     out = []
-    for i in range(len(main)):
-        print("frame {:04d}".format(i))
-        out.append(im2im(main[i], ref, side[i]))
+    length = min(len(main), len(side)) # Take the shorter
+    for i in range(length):
+        out.append(im2im(main[i], ref, side[i]))  # im2im on each pair of frames
     return out
 
 
 if __name__ == '__main__':
     print('my_ar')
 
-    sections2run = ['Q3.1 ',
-                    'Q3.2 ',
+    # For debugging
+    sections2run = ['Q3.1 v',
+                    'Q3.2 v',
                     'Q3.3 v',
                     'Q3.4 ']
 
@@ -100,30 +102,6 @@ if __name__ == '__main__':
 
     if 'Q3.2 v' in sections2run:
         print("Start Q3.2")
-        # ref = imread('../output/book1_ref.jpg')
-        # img_pairs = [['./my_data/set1.jpg', '../output/book3_ref.jpg'],
-        #              ['./my_data/set2.jpg', '../output/book2_ref.jpg'],
-        #              ['./my_data/set3.jpg', '../output/book2_ref.jpg'],
-        #              ['./my_data/set4.jpg', '../output/book3_ref.jpg'],
-        #              ['./my_data/set5.jpg', '../output/book3_ref.jpg']]
-        #
-        # for base_p, inst_p in img_pairs:
-        #     item = imread(inst_p)
-        #     base = imread(base_p)
-        #     im = im2im(base, ref, item)
-        #     imwrite(im, base_p, "_ar")
-        #
-        # ref = imread('../output/book3_ref.jpg')
-        # img_pairs = [['./my_data/jet1.jpg', '../output/book3_ref.jpg'],
-        #              ['./my_data/jet2.jpg', '../output/book2_ref.jpg'],
-        #              ['./my_data/jet3.jpg', '../output/book2_ref.jpg'],
-        #              ['./my_data/jet4.jpg', '../output/book3_ref.jpg']]
-        #
-        # for base_p, inst_p in img_pairs:
-        #     item = imread(inst_p)
-        #     base = imread(base_p)
-        #     im = im2im(base, ref, item)
-        #     imwrite(im, base_p, "_ar")
 
         ref = imread('../output/book4_ref.jpg')
         img_pairs = [['./my_data/bet1.jpg', '../output/book3_ref.jpg'],
@@ -131,12 +109,13 @@ if __name__ == '__main__':
                      ['./my_data/bet3.jpg', '../output/book2_ref.jpg'],
                      ['./my_data/bet4.jpg', '../output/book3_ref.jpg'],
                      ['./my_data/bet5.jpg', '../output/book3_ref.jpg']]
-
+        i = 0
         for base_p, inst_p in img_pairs:
             item = imread(inst_p)
             base = imread(base_p)
             im = im2im(base, ref, item)
-            imwrite(im, base_p, "_ar")
+
+            cv2.imwrite(f'../output/im2im{i}.jpg', cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
 
     if 'Q3.3 v' in sections2run:
         print("Start Q3.2")
@@ -145,6 +124,8 @@ if __name__ == '__main__':
         vid_side_path = './my_data/vid_side.mp4'
         ims_side_path = './my_data/vid_side_dir'
         vid_outp_path = '../output/vid_outp_dir'
+        vid_finl_path = '../output/vid2vid.mp4'
+
         vid2ims(vid_main_path, ims_main_path)
         vid2ims(vid_side_path, ims_side_path)
 
@@ -158,19 +139,18 @@ if __name__ == '__main__':
         for f in glob.glob(os.path.join(ims_side_path, '*.jpg')):
             ims_side.append(imread(f))
 
-        ims_out = vid2vid(ims_main[0], ref[0], ims_side)
+        ims_out = vid2vid(ims_main, ref, ims_side)
 
+        if not os.path.isdir(vid_outp_path):
+            os.mkdir(vid_outp_path)
         for i, im in enumerate(ims_out):
             p = os.path.join(vid_outp_path, "im" + '{:04d}'.format(i) +".jpg")
+            im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
             cv2.imwrite(p, im)
 
-        ims2vid(vid_outp_path, vid_outp_path)
+        ims2vid(vid_outp_path, vid_finl_path)
 
-
-
-
-
-
-
+    if 'Q3.4 v' in sections2run:
+        print("Start Q3.4")
 
     print("done")

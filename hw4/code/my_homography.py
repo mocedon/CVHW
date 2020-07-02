@@ -1,21 +1,18 @@
 import pathlib
 import datetime
 import numpy as np
-import matplotlib.pyplot as plt
-import cv2
 import scipy
 from matplotlib import pyplot as plt
+import cv2
+from scipy import interpolate as interp
+import PythonSIFT.pysift as pysift
 
 OUTPUT_FOLDER = pathlib.Path(r"").absolute().parent / "output"
 DS_INCLINE = 4
 DS_FLOOR = 10
 DS_BEACH = 15
 DS_SINTRA = 15
-# #Add imports if needed:
-from scipy import interpolate as interp
-import PythonSIFT.pysift as pysift
-# #end imports
-#789
+
 # #Add extra functions here:
 def imread(path, ds=1):
     im = cv2.imread(path)
@@ -79,6 +76,7 @@ def computeH(p1, p2):
     (U, D, Vh) = np.linalg.svd(A, False)
     h = Vh.T[:, -1]
     H2to1 = h.reshape((3, 3))
+
     return H2to1
 
 
@@ -122,7 +120,6 @@ def warpH(im1, H, out_size):
 
 
 def imageStitching(img1, wrap_img2):
-    #TODO: merge better
     panoImg = np.zeros_like(wrap_img2)
     mask1 = np.any(img1[:, :] > [0, 0, 0], axis=2)
     mask2 = np.any(wrap_img2[:, :] > [0, 0, 0], axis=2)
@@ -197,9 +194,6 @@ def getPoints_SIFT(im1,im2):
     plt.imshow(img3)
     fig.savefig((OUTPUT_FOLDER / f"getPoints_SIFT_{datetime.datetime.now().strftime('%H%M%S')}").with_suffix(".jpg"),
                 bbox_inches="tight", pad_inches=0)
-
-    # Close figure
-    plt.close()
 
     return p1, p2
 
@@ -307,6 +301,22 @@ if __name__ == '__main__':
 
     # Q2.2
     if q == 22:
+        im1 = imread('data/incline_L.png', ds=4)
+        im2 = imread('data/incline_R.png', ds=4)
+
+
+    working_on = 0
+
+    if working_on < 2:
+        if working_on == 0:
+            p1, p2 = getPoints(im1, im2, 6)
+            print(f'p1 {p1}')
+            print(f'p2 {p2}')
+        else:
+            p1 = np.array([[452, 610, 622, 401, 914, 414],
+                           [123, 195, 489, 176, 360, 360]])
+            p2 = np.array([[117, 290, 315, 58, 572, 80],
+                           [152, 245, 539, 221, 398, 426]])
         H = computeH(p1, p2)
         print(H)
         imW = im1.shape[0]
@@ -430,6 +440,42 @@ if __name__ == '__main__':
                 base = img
 
         plt.imshow(pan)
+
+    if working_on == 6:
+        lr1 = imread('my_data/lr1.JPG')
+        lr2 = imread('my_data/lr2.JPG')
+
+
+        lrW = lr1.shape[0]
+        lrH = lr2.shape[1]
+
+        sts = [[lr1, lr2]]
+
+        scale = np.array([2, 1, 1])
+        sz = np.array([lrW, lrH, 3] * scale)
+        pan = np.zeros(sz)
+
+
+        for st in sts:
+            H = np.array([[1, 0, 0],
+                          [0, 1, 0],
+                          [0, 0, 1]])
+
+            base = st[0]
+
+            for img in st:
+                p1, p2 = getPoints_SIFT(base, img)
+                H = H @ ransacH(p1[:120], p2[:120])
+
+                img_w = warpH(img, H, sz)
+                plt.imshow(img_w)
+                plt.show()
+                pan = imageStitching(pan, img_w)
+                base = img
+        plt.imshow(pan)
+        plt.show()
+
+
 
 
 

@@ -170,7 +170,7 @@ if __name__ == '__main__':
     im1 = imread('data/incline_L.png', ds=4)
     im2 = imread('data/incline_R.png', ds=4)
 
-    working_on = 3
+    working_on = 6
     if working_on < 2:
         if working_on == 0:
             p1,p2 = getPoints(im1, im2, 6)
@@ -292,6 +292,42 @@ if __name__ == '__main__':
                 base = img
 
         plt.imshow(pan)
+
+    if working_on == 6:
+        lr1 = imread('my_data/lr1.JPG')
+        lr2 = imread('my_data/lr2.JPG')
+
+
+        lrW = lr1.shape[0]
+        lrH = lr2.shape[1]
+
+        sts = [[lr1, lr2]]
+
+        scale = np.array([2, 1, 1])
+        sz = np.array([lrW, lrH, 3] * scale)
+        pan = np.zeros(sz)
+
+
+        for st in sts:
+            H = np.array([[1, 0, 0],
+                          [0, 1, 0],
+                          [0, 0, 1]])
+
+            base = st[0]
+
+            for img in st:
+                p1, p2 = getPoints_SIFT(base, img)
+                H = H @ ransacH(p1[:120], p2[:120])
+
+                img_w = warpH(img, H, sz)
+                plt.imshow(img_w)
+                plt.show()
+                pan = imageStitching(pan, img_w)
+                base = img
+        plt.imshow(pan)
+        plt.show()
+
+
 
 
 

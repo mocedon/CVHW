@@ -158,13 +158,20 @@ if __name__ == '__main__':
         for f in glob.glob(os.path.join(ims_side_path, '*.jpg')):
             ims_side.append(imread(f))
 
-        ims_out = vid2vid(ims_main[0], ref[0], ims_side)
+        ims_out = vid2vid(ims_main, ref, ims_side)
 
+        if not os.path.isdir(vid_outp_path):
+            os.mkdir(vid_outp_path)
         for i, im in enumerate(ims_out):
             p = os.path.join(vid_outp_path, "im" + '{:04d}'.format(i) +".jpg")
+            im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
             cv2.imwrite(p, im)
 
         ims2vid(vid_outp_path, vid_outp_path)
+
+    if 'Q3.4 v' in sections2run:
+        print("Start Q3.4")
+
 
 
 

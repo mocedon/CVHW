@@ -27,27 +27,35 @@ def getPoints(im1, im2, N=6):
     getPoints(im1, im2, N) -> p1 , p2
     Manually pick corresponding points on 2 images
     """
+    # Full screen figure
+    plt.figure()
+    plt.switch_backend('TkAgg')
+    mng = plt.get_current_fig_manager()
+    mng.window.state('zoomed')
     # Plot images
     plt.subplot(1, 2, 1)
     plt.imshow(im1)
     plt.xticks([])
     plt.yticks([])
-    plt.title("Pick a key-point HERE first")
+    plt.title("Pick a key-point HERE first", fontsize=12)
     plt.subplot(1, 2, 2)
     plt.imshow(im2)
     plt.xticks([])
     plt.yticks([])
-    plt.title("Pick a corresponding key-point HERE next")
+    plt.title("Pick a corresponding key-point HERE next", fontsize=12)
     print("Match points on both images, left-right-left-right...")
 
     # Choose points
     pts = plt.ginput(2 * N, timeout=0)
 
+    # Close figure
+    plt.close()
+
     # Separate between images and stack as matrix
     pts1 = np.row_stack(pts[::2]).T
     pts2 = np.row_stack(pts[1::2]).T
 
-    return p1, p2
+    return pts1, pts2
 
 
 def computeH(p1, p2):

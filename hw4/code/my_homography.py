@@ -1,10 +1,16 @@
+import pathlib
+import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import scipy
 from matplotlib import pyplot as plt
 
-
+OUTPUT_FOLDER = pathlib.Path(r"").absolute().parent / "output"
+DS_INCLINE = 4
+DS_FLOOR = 10
+DS_BEACH = 15
+DS_SINTRA = 15
 # #Add imports if needed:
 from scipy import interpolate as interp
 import PythonSIFT.pysift as pysift
@@ -77,7 +83,9 @@ def computeH(p1, p2):
 
 
 def warpH(im1, H, out_size):
-    # TODO: get interpolation working
+    im1 = im1.copy()
+    # Convert to LAB color space
+    im1 = cv2.cvtColor(im1, cv2.COLOR_RGB2LAB)
     warp = np.zeros([out_size[0], out_size[1], im1.shape[2]], dtype=np.uint8)
     imW, imH = im1.shape[:2]
 
@@ -100,6 +108,16 @@ def warpH(im1, H, out_size):
                 z = intrp(u, v)
                 warp[x, y, ch] = z
 
+    # Convert back to RGB color space, and fix "Blue background" issue
+    mask = (warp == [0, 0 ,0])
+    warp = cv2.cvtColor(warp, cv2.COLOR_LAB2RGB)
+    warp[mask] = 0
+
+    fig = plt.figure()
+    plt.imshow(warp)
+    fig.savefig((OUTPUT_FOLDER / f"warpH_{datetime.datetime.now().strftime('%H%M%S')}").with_suffix(".jpg"),
+                bbox_inches="tight", pad_inches=0)
+
     return warp
 
 
@@ -114,6 +132,12 @@ def imageStitching(img1, wrap_img2):
     panoImg[mask1] = img1[mask1]
     panoImg[mask2] = wrap_img2[mask2]
     panoImg[mask0] = img1[mask0]
+
+    fig = plt.figure()
+    plt.imshow(panoImg)
+    fig.savefig((OUTPUT_FOLDER / f"warpH_{datetime.datetime.now().strftime('%H%M%S')}").with_suffix(".jpg"),
+                bbox_inches="tight", pad_inches=0)
+
     return panoImg
 
 
@@ -169,64 +193,166 @@ def getPoints_SIFT(im1,im2):
 
     # Debug
     img3 = cv2.drawMatches(im1, kp1, im2, kp2, prs, None, flags=2)
-    plt.imshow(img3), plt.show()
+    fig = plt.figure()
+    plt.imshow(img3)
+    fig.savefig((OUTPUT_FOLDER / f"getPoints_SIFT_{datetime.datetime.now().strftime('%H%M%S')}").with_suffix(".jpg"),
+                bbox_inches="tight", pad_inches=0)
+
+    # Close figure
+    plt.close()
 
     return p1, p2
 
 
+def computeA(p1, p2):
+    """Compute best fitting affine transformation between two point arrays"""
+    assert (p1.shape[1] == p2.shape[1])
+    assert (p1.shape[0] == 2)
+    A = []
+    b = []
+    for i in range(p1.shape[1]):
+        x = p1[1][i]
+        y = p1[0][i]
+        u = p2[1][i]
+        v = p2[0][i]
+        A.append(np.array([u, v, 1, 0, 0, 0]))
+        A.append(np.array([0, 0, 0, u, v, 1]))
+        b.append(x)
+        b.append(y)
+
+    A = np.vstack(A)
+    b = np.vstack(b)
+    x = np.column_stack([np.array([1, 0, 0, 0, 1, 0])])
+    A2to1 = np.linalg.pinv(A) @ b
+    A2to1 = np.row_stack([A2to1.reshape((2, 3)), [0, 0, 1]])
+
+    return A2to1
+
+
+def imageStitchingHomography(img1, img2, getPointsBy="ginput"):
+    """Image stitching using homography transformation"""
+    if getPointsBy == "SIFT":
+        p1, p2 = getPoints_SIFT(img1, img2)
+    else:
+        p1, p2 = getPoints(img1, img2)
+        p1 = p1.T
+        p2 = p2.T
+    I = np.identity(3)
+    H = computeH(p1[:12].T, p2[:12].T)
+    sz = np.array(img1.shape[:2]) * 2
+
+    print(f'H {H}')
+
+    img1_p = warpH(img1, I, sz)
+    img2_p = warpH(img2, H, sz)
+
+    fig = plt.figure()
+    plt.imshow(np.hstack([img1_p, img2_p]))
+    fig.savefig((OUTPUT_FOLDER / f"Homographically-Transformed_{datetime.datetime.now().strftime('%H%M%S')}").with_suffix(".jpg"),
+                bbox_inches="tight", pad_inches=0)
+
+    pan = imageStitching(img1_p, img2_p)
+    plt.imshow(pan)
+    fig.savefig((OUTPUT_FOLDER / f"Homographically-Stitched_{datetime.datetime.now().strftime('%H%M%S')}").with_suffix(".jpg"),
+                bbox_inches="tight", pad_inches=0)
+
+
+def imageStitchingAffine(img1, img2, getPointsBy="ginput"):
+    """Image stitching using affine transformation"""
+    if getPointsBy == "SIFT":
+        p1, p2 = getPoints_SIFT(img1, img2)
+    else:
+        p1, p2 = getPoints(img1, img2)
+        p1 = p1.T
+        p2 = p2.T
+    I = np.identity(3)
+    A = computeA(p1[:12].T, p2[:12].T)
+    sz = np.array(img1.shape[:2]) * 2
+
+    print(f'A {A}')
+
+    img1_p = warpH(img1, I, sz)
+    img2_p = warpH(img2, A, sz)
+
+    fig = plt.figure()
+    plt.imshow(np.hstack([img1_p, img2_p]))
+    fig.savefig((OUTPUT_FOLDER / f"Affinally-Transformed_{datetime.datetime.now().strftime('%H%M%S')}").with_suffix(".jpg"),
+                bbox_inches="tight", pad_inches=0)
+
+    pan = imageStitching(img1_p, img2_p)
+    plt.imshow(pan)
+    fig.savefig((OUTPUT_FOLDER / f"Affinally-Stitched_{datetime.datetime.now().strftime('%H%M%S')}").with_suffix(".jpg"),
+                bbox_inches="tight", pad_inches=0)
+
+
 if __name__ == '__main__':
     print('my_homography')
-    im1 = imread('data/incline_L.png', ds=4)
-    im2 = imread('data/incline_R.png', ds=4)
+    # Qyestion to be tested
+    q = 22
+    debug = True
 
-    working_on = 0
-    if working_on < 2:
-        if working_on == 0:
-            p1, p2 = getPoints(im1, im2, 6)
-            print(f'p1 {p1}')
-            print(f'p2 {p2}')
-        else:
-            p1 = np.array([[452, 610, 622, 401, 914, 414],
-                           [123, 195, 489, 176, 360, 360]])
-            p2 = np.array([[117, 290, 315, 58, 572, 80],
-                           [152, 245, 539, 221, 398, 426]])
+    im1 = imread('data/incline_L.png', ds=DS_INCLINE)
+    im2 = imread('data/incline_R.png', ds=DS_INCLINE)
+
+    # Q2.1
+    if q == 21:
+        p1, p2 = getPoints(im1, im2, 6)
+        print(f'p1 {p1}')
+        print(f'p2 {p2}')
+    else:
+        p1 = np.array([[452, 610, 622, 401, 914, 414],
+                       [123, 195, 489, 176, 360, 360]])
+        p2 = np.array([[117, 290, 315, 58, 572, 80],
+                       [152, 245, 539, 221, 398, 426]])
+
+    # Q2.2
+    if q == 22:
         H = computeH(p1, p2)
         print(H)
-        imW =im1.shape[0]
+        imW = im1.shape[0]
         imH = im1.shape[1]
         im = warpH(im2, H, (2*imW, 2*imH))
-        # fig, (ax1, ax2) = plt.subplots(1,2)
-        # ax1.imshow(im1)
-        # ax2.imshow(im)
-
+        fig, (ax1, ax2) = plt.subplots(1,2)
+        ax1.imshow(im1)
+        ax2.imshow(im)
         pan = imageStitching(im1 , im)
         plt.imshow(pan)
 
+    working_on = 2
+
     if working_on == 2:
-        p1, p2 = getPoints_SIFT(im1, im2)
-        I = np.identity(3)
-        H = computeH(p1[:12].T, p2[:12].T)
-        sz = np.array(im1.shape[:2]) *2
+        # Example of non-working affine stitching
+        # print("Stitching incline-*.jpg using homography transformation")
+        # imageStitchingHomography(im1, im2)
+        # print("Stitching incline-*.jpg using affine transformation")
+        # imageStitchingAffine(im1, im2)
 
-        # H = np.array([[ 9.861e-3, -1.018e-3, -3.776e-2],
-        #               [-9.200e-5,  7.204e-3,  9.991e-1],
-        #               [ 1.011e-6, -1.672e-5,  1.115e-2]])
-        print(f'H {H}')
+        # # Debug computeA
+        # # Identity
+        # p1 = np.array([[0, 0, 1, 1], [0, 1, 1, 0]])
+        # p2 = p1.copy()
+        # res = computeA(p1, p2)
+        # # Mirror
+        # p1 = np.array([[0, 0, 1, 1], [0, 1, 1, 0]])
+        # p2 = -p1.copy()
+        # res = computeA(p1, p2)
+        # Example of working affine stitching
+        im1_ah = imread(r'my_data\FloorEqualDepth\FloorEqualDepth-L.jpg', ds=DS_FLOOR)
+        im2_ah = imread(r'my_data\FloorEqualDepth\FloorEqualDepth-R.jpg', ds=DS_FLOOR)
+        print("Stitching FloorEqualDepth-*.jpg using homography transformation")
+        imageStitchingHomography(im1_ah, im2_ah)
+        print("Stitching FloorEqualDepth-*.jpg using affine transformation")
+        imageStitchingAffine(im1_ah, im2_ah)
 
-        im1_p = warpH(im1, I, sz)
-        im2_p = warpH(im2, H, sz)
 
-        plt.imshow(np.hstack([im1_p, im2_p]))
-
-        pan = imageStitching(im1_p, im2_p)
-        plt.imshow(pan)
 
     if working_on == 3:
-        b1 = imread('data/beach5.jpg', ds=5)
-        b2 = imread('data/beach4.jpg', ds=5)
-        b3 = imread('data/beach3.jpg', ds=5)
-        b4 = imread('data/beach2.jpg', ds=5)
-        b5 = imread('data/beach1.jpg', ds=5)
+        print("SIFT-demo on beach*.jpg")
+        b1 = imread('data/beach5.jpg', ds=DS_BEACH)
+        b2 = imread('data/beach4.jpg', ds=DS_BEACH)
+        b3 = imread('data/beach3.jpg', ds=DS_BEACH)
+        b4 = imread('data/beach2.jpg', ds=DS_BEACH)
+        b5 = imread('data/beach1.jpg', ds=DS_BEACH)
 
         bW = b1.shape[0]
         bH = b1.shape[1]
@@ -249,6 +375,7 @@ if __name__ == '__main__':
             base = b3
 
             for img in st:
+                print("getPoint_SIFT")
                 p1, p2 = getPoints_SIFT(base, img)
                 H = H @ ransacH(p1[:120], p2[:120])
 
@@ -265,11 +392,12 @@ if __name__ == '__main__':
 
 
     if working_on == 3:
-        s1 = imread('data/sintra5.JPG', ds=6)
-        s2 = imread('data/sintra4.JPG', ds=6)
-        s3 = imread('data/sintra3.JPG', ds=6)
-        s4 = imread('data/sintra2.JPG', ds=6)
-        s5 = imread('data/sintra1.JPG', ds=6)
+        print("SIFT-demo on sintra*.jpg")
+        s1 = imread('data/sintra5.JPG', ds=DS_SINTRA)
+        s2 = imread('data/sintra4.JPG', ds=DS_SINTRA)
+        s3 = imread('data/sintra3.JPG', ds=DS_SINTRA)
+        s4 = imread('data/sintra2.JPG', ds=DS_SINTRA)
+        s5 = imread('data/sintra1.JPG', ds=DS_SINTRA)
 
         sW = s1.shape[0]
         sH = s1.shape[1]
@@ -291,6 +419,7 @@ if __name__ == '__main__':
             base = st[0]
 
             for img in st:
+                print("getPoint_SIFT")
                 p1, p2 = getPoints_SIFT(base, img)
                 H = H @ ransacH(p1[:120], p2[:120])
 
